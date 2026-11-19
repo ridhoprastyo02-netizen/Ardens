@@ -1,1 +1,51 @@
+name: Build Ardens libretro (armhf)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Install cross compiler
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake g++-arm-linux-gnueabihf gcc-arm-linux-gnueabihf
+
+      - name: Configure
+        run: |
+          cmake -B build -S . \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DARDENS_LIBRETRO=1 \
+            -DARDENS_SDL=OFF \
+            -DCMAKE_SYSTEM_NAME=Linux \
+            -DCMAKE_SYSTEM_PROCESSOR=arm \
+            -DCMAKE_C_COMPILER=arm-linux-gnueabihf-gcc \
+            -DCMAKE_CXX_COMPILER=arm-linux-gnueabihf-g++ \
+            -DCMAKE_C_FLAGS="-march=armv7-a -mfpu=neon-vfpv4 -mfloat-abi=hard" \
+            -DCMAKE_CXX_FLAGS="-march=armv7-a -mfpu=neon-vfpv4 -mfloat-abi=hard -static-libstdc++ -static-libgcc"
+
+      - name: Build
+        run: cmake --build build --target ardens_libretro --parallel
+
+      - name: Check result
+        run: |
+          find build -name "ardens_libretro*.so" -exec file {} \;
+          mkdir -p out
+          cp $(find build -name "ardens_libretro.so" | head -n 1) out/
+          arm-linux-gnueabihf-strip out/ardens_libretro.so
+          file out/ardens_libretro.so
+          ls -l out
+
+      - name: Upload core
+        uses: actions/upload-artifact@v4
+        with:
+          name: ardens_libretro_armhf
+          path: out/ardens_libretro.so
 
